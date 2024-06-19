@@ -1,0 +1,256 @@
+import javax.swing.*;
+import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
+
+public class ReservationTab extends JPanel {
+    private String fullName;
+    private JTextField fullNameField, ageField, dobField, sexField, addressField, contactNumberField;
+    private JTextArea currentMedicationsArea, allergiesArea, pastMedicalHistoryArea, otherInfoArea;
+    private JButton editButton, saveButton, deleteButton, exitButton;
+    private JTabbedPane parentTabbedPane;
+
+    public ReservationTab(String fullName, String age, String dob, String sex, String address, String contactNumber,
+                          String currentMedications, String allergies, String pastMedicalHistory, String otherInfo,
+                          JTabbedPane parentTabbedPane) {
+        this.fullName = fullName;
+        this.parentTabbedPane = parentTabbedPane;
+
+        setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
+
+        fullNameField = new JTextField(fullName);
+        ageField = new JTextField(age);
+        dobField = new JTextField(dob);
+        sexField = new JTextField(sex);
+        addressField = new JTextField(address);
+        contactNumberField = new JTextField(contactNumber);
+        currentMedicationsArea = new JTextArea(currentMedications, 5, 20);
+        allergiesArea = new JTextArea(allergies, 5, 20);
+        pastMedicalHistoryArea = new JTextArea(pastMedicalHistory, 5, 20);
+        otherInfoArea = new JTextArea(otherInfo, 5, 20);
+
+        fullNameField.setEditable(false);
+        ageField.setEditable(false);
+        dobField.setEditable(false);
+        sexField.setEditable(false);
+        addressField.setEditable(false);
+        contactNumberField.setEditable(false);
+        currentMedicationsArea.setEditable(false);
+        allergiesArea.setEditable(false);
+        pastMedicalHistoryArea.setEditable(false);
+        otherInfoArea.setEditable(false);
+
+        JPanel buttonPanel = new JPanel();
+        editButton = new JButton("Edit");
+        saveButton = new JButton("Save");
+        deleteButton = new JButton("Delete");
+        exitButton = new JButton("Exit");
+
+        saveButton.setEnabled(false);
+
+        buttonPanel.add(editButton);
+        buttonPanel.add(saveButton);
+        buttonPanel.add(deleteButton);
+        buttonPanel.add(exitButton);
+
+        editButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                setEditable(true);
+            }
+        });
+
+        saveButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                setEditable(false);
+                saveReservationToFile();
+            }
+        });
+
+        deleteButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                int option = JOptionPane.showConfirmDialog(ReservationTab.this,
+                        "Are you sure you want to delete this reservation?",
+                        "Confirmation", JOptionPane.YES_NO_OPTION);
+                if (option == JOptionPane.YES_OPTION) {
+                    deleteReservation();
+                }
+            }
+        });
+
+        exitButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                parentTabbedPane.remove(ReservationTab.this);
+            }
+        });
+
+        addFieldWithLabel("Full Name:", fullNameField);
+        addFieldWithLabel("Age:", ageField);
+        addFieldWithLabel("Date of Birth:", dobField);
+        addFieldWithLabel("Sex:", sexField);
+        addFieldWithLabel("Address:", addressField);
+        addFieldWithLabel("Contact Number:", contactNumberField);
+
+        addSectionLabel("Current Medications:");
+        addScrollableTextArea(currentMedicationsArea);
+
+        addSectionLabel("Allergies:");
+        addScrollableTextArea(allergiesArea);
+
+        addSectionLabel("Past Medical History:");
+        addScrollableTextArea(pastMedicalHistoryArea);
+
+        addSectionLabel("Other Information:");
+        addScrollableTextArea(otherInfoArea);
+
+        add(buttonPanel);
+        setBorder(BorderFactory.createTitledBorder(fullName));
+    }
+
+    private void setEditable(boolean editable) {
+        fullNameField.setEditable(editable);
+        ageField.setEditable(editable);
+        dobField.setEditable(editable);
+        sexField.setEditable(editable);
+        addressField.setEditable(editable);
+        contactNumberField.setEditable(editable);
+        currentMedicationsArea.setEditable(editable);
+        allergiesArea.setEditable(editable);
+        pastMedicalHistoryArea.setEditable(editable);
+        otherInfoArea.setEditable(editable);
+
+        saveButton.setEnabled(editable);
+        editButton.setEnabled(!editable);
+    }
+
+    private void saveReservationToFile() {
+        String fileName = fullName.replaceAll("\\s+", "") + ".txt"; // Remove spaces for file name
+        String directoryPath = "Inventory";
+        String filePath = directoryPath + File.separator + fileName;
+
+        File directory = new File(directoryPath);
+        if (!directory.exists()) {
+            directory.mkdirs(); // Create directory if it doesn't exist
+        }
+
+        try (FileWriter writer = new FileWriter(filePath)) {
+            writer.write("Full Name: " + fullName + "\n\n");
+            writer.write("Age: " + ageField.getText() + "\n");
+            writer.write("Date of Birth: " + dobField.getText() + "\n");
+            writer.write("Sex: " + sexField.getText() + "\n");
+            writer.write("Address: " + addressField.getText() + "\n");
+            writer.write("Contact Number: " + contactNumberField.getText() + "\n\n");
+            writer.write("Current Medications:\n" + currentMedicationsArea.getText() + "\n\n");
+            writer.write("Allergies:\n" + allergiesArea.getText() + "\n\n");
+            writer.write("Past Medical History:\n" + pastMedicalHistoryArea.getText() + "\n\n");
+            writer.write("Other Information:\n" + otherInfoArea.getText() + "\n");
+
+            JOptionPane.showMessageDialog(this, "Reservation saved to file: " + fileName);
+        } catch (IOException e) {
+            JOptionPane.showMessageDialog(this, "Error saving reservation to file:\n" + e.getMessage(),
+                    "Error", JOptionPane.ERROR_MESSAGE);
+            e.printStackTrace();
+        }
+    }
+
+    private void deleteReservation() {
+        parentTabbedPane.remove(this); // Remove tab from UI
+
+        // Remove corresponding button from the Inventory tab
+        Component[] components = parentTabbedPane.getComponents();
+        if (components.length > 1 && components[1] instanceof JScrollPane) {
+            JScrollPane scrollPane = (JScrollPane) components[1];
+            Component view = scrollPane.getViewport().getView();
+            if (view instanceof JPanel) {
+                JPanel inventoryPanel = (JPanel) view;
+                Component[] buttons = inventoryPanel.getComponents();
+                for (Component button : buttons) {
+                    if (button instanceof JButton && ((JButton) button).getText().equals(fullName)) {
+                        inventoryPanel.remove(button);
+                        inventoryPanel.revalidate();
+                        inventoryPanel.repaint();
+                        break;
+                    }
+                }
+            }
+        }
+
+        String fileName = fullName.replaceAll("\\s+", "") + ".txt";
+        String filePath = "Inventory" + File.separator + fileName;
+
+        File file = new File(filePath);
+        if (file.exists()) {
+            if (file.delete()) {
+                JOptionPane.showMessageDialog(this, "Reservation deleted successfully");
+            } else {
+                JOptionPane.showMessageDialog(this, "Failed to delete reservation file",
+                        "Error", JOptionPane.ERROR_MESSAGE);
+            }
+        } else {
+            JOptionPane.showMessageDialog(this, "Reservation file not found",
+                    "Error", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    private void addFieldWithLabel(String label, JTextField field) {
+        JPanel panel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        panel.add(new JLabel(label));
+        panel.add(field);
+        add(panel);
+    }
+
+    private void addSectionLabel(String label) {
+        JLabel sectionLabel = new JLabel(label);
+        sectionLabel.setFont(new Font("Arial", Font.BOLD, 14));
+        add(sectionLabel);
+    }
+
+    private void addScrollableTextArea(JTextArea textArea) {
+        JScrollPane scrollPane = new JScrollPane(textArea);
+        scrollPane.setPreferredSize(new Dimension(400, 100));
+        add(scrollPane);
+    }
+
+    // Getter methods for retrieving data
+    public String getAge() {
+        return ageField.getText();
+    }
+
+    public String getDob() {
+        return dobField.getText();
+    }
+
+    public String getSex() {
+        return sexField.getText();
+    }
+
+    public String getAddress() {
+        return addressField.getText();
+    }
+
+    public String getContactNumber() {
+        return contactNumberField.getText();
+    }
+
+    public String getCurrentMedications() {
+        return currentMedicationsArea.getText();
+    }
+
+    public String getAllergies() {
+        return allergiesArea.getText();
+    }
+
+    public String getPastMedicalHistory() {
+        return pastMedicalHistoryArea.getText();
+    }
+
+    public String getOtherInfo() {
+        return otherInfoArea.getText();
+    }
+}
