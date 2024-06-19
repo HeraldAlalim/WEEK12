@@ -1,0 +1,308 @@
+import javax.swing.*;
+import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.HashMap;
+import java.util.Scanner;
+
+public class ClinicReservationSystem {
+    private JTextField fullNameField, ageField, dobField, sexField, addressField, contactNumberField;
+    private JTextArea currentMedicationsArea, allergiesArea, pastMedicalHistoryArea, otherInfoArea;
+    private JTabbedPane tabbedPane;
+    private HashMap<String, ReservationTab> reservationTabs;
+    private static final String INVENTORY_FOLDER = "Inventory";
+
+    public ClinicReservationSystem() {
+        JFrame frame = new JFrame("Online Clinic Reservation System");
+        frame.setSize(800, 815);
+        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+
+        tabbedPane = new JTabbedPane();
+        reservationTabs = new HashMap<>();
+
+        // Reservation Form Panel
+        JPanel reservationPanel = new JPanel();
+        reservationPanel.setLayout(new BoxLayout(reservationPanel, BoxLayout.Y_AXIS));
+
+        // Personal Information
+        JLabel personalInfoLabel = new JLabel("Personal Information");
+        personalInfoLabel.setFont(new Font("Arial", Font.BOLD, 20));
+        personalInfoLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        reservationPanel.add(personalInfoLabel);
+        reservationPanel.add(Box.createRigidArea(new Dimension(0, 20)));
+
+        fullNameField = new JTextField(20);
+        reservationPanel.add(new JLabel("Full Name:"));
+        reservationPanel.add(fullNameField);
+
+        ageField = new JTextField(20);
+        reservationPanel.add(new JLabel("Age:"));
+        reservationPanel.add(ageField);
+
+        dobField = new JTextField(20);
+        reservationPanel.add(new JLabel("Date of Birth:"));
+        reservationPanel.add(dobField);
+
+        sexField = new JTextField(20);
+        reservationPanel.add(new JLabel("Sex:"));
+        reservationPanel.add(sexField);
+
+        addressField = new JTextField(20);
+        reservationPanel.add(new JLabel("Address:"));
+        reservationPanel.add(addressField);
+
+        contactNumberField = new JTextField(20);
+        reservationPanel.add(new JLabel("Contact Number:"));
+        reservationPanel.add(contactNumberField);
+
+        reservationPanel.add(Box.createRigidArea(new Dimension(0, 20)));
+
+        // Medical History
+        JLabel medicalHistoryLabel = new JLabel("Medical History");
+        medicalHistoryLabel.setFont(new Font("Arial", Font.BOLD, 20));
+        medicalHistoryLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        reservationPanel.add(medicalHistoryLabel);
+        reservationPanel.add(Box.createRigidArea(new Dimension(0, 20)));
+
+        currentMedicationsArea = new JTextArea(5, 20);
+        reservationPanel.add(new JLabel("Current Medications:"));
+        reservationPanel.add(new JScrollPane(currentMedicationsArea));
+
+        allergiesArea = new JTextArea(5, 20);
+        reservationPanel.add(new JLabel("Allergies:"));
+        reservationPanel.add(new JScrollPane(allergiesArea));
+
+        pastMedicalHistoryArea = new JTextArea(5, 20);
+        reservationPanel.add(new JLabel("Past Medical History:"));
+        reservationPanel.add(new JScrollPane(pastMedicalHistoryArea));
+
+        otherInfoArea = new JTextArea(5, 20);
+        reservationPanel.add(new JLabel("Other Information:"));
+        reservationPanel.add(new JScrollPane(otherInfoArea));
+
+        // Add button to collect data and create new tab
+        JButton addButton = new JButton("Add Reservation");
+        addButton.setAlignmentX(Component.CENTER_ALIGNMENT);
+        reservationPanel.add(Box.createRigidArea(new Dimension(0, 20)));
+        reservationPanel.add(addButton);
+
+        JScrollPane reservationScrollPane = new JScrollPane(reservationPanel);
+        tabbedPane.addTab("Reservation Form", reservationScrollPane);
+
+        // Inventory Panel
+        JPanel inventoryPanel = new JPanel();
+        inventoryPanel.setLayout(new BoxLayout(inventoryPanel, BoxLayout.Y_AXIS));
+        JScrollPane inventoryScrollPane = new JScrollPane(inventoryPanel);
+        tabbedPane.addTab("Inventory", inventoryScrollPane);
+
+        frame.getContentPane().add(tabbedPane, BorderLayout.CENTER);
+
+        // Load existing reservations from Inventory folder
+        loadExistingReservations(inventoryPanel);
+
+        // ActionListener for Add Reservation button
+        addButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                String fullName = fullNameField.getText().trim();
+
+                // Create new reservation tab
+                ReservationTab newTab = new ReservationTab(
+                        fullName,
+                        ageField.getText(),
+                        dobField.getText(),
+                        sexField.getText(),
+                        addressField.getText(),
+                        contactNumberField.getText(),
+                        currentMedicationsArea.getText(),
+                        allergiesArea.getText(),
+                        pastMedicalHistoryArea.getText(),
+                        otherInfoArea.getText(),
+                        tabbedPane
+                );
+
+                reservationTabs.put(fullName, newTab);
+
+                // Save reservation as text file in Inventory folder
+                saveReservationToFile(fullName, newTab);
+
+                // Add a new button to the Inventory tab
+                JButton inventoryButton = new JButton(fullName);
+                inventoryButton.addActionListener(new ActionListener() {
+                    @Override
+                    public void actionPerformed(ActionEvent e) {
+                        String patientName = inventoryButton.getText();
+                        ReservationTab existingTab = reservationTabs.get(patientName);
+                        if (existingTab != null) {
+                            int index = tabbedPane.indexOfComponent(existingTab);
+                            if (index != -1) {
+                                tabbedPane.setSelectedIndex(index);
+                            } else {
+                                tabbedPane.addTab(patientName, existingTab);
+                                tabbedPane.setSelectedComponent(existingTab);
+                            }
+                        }
+                    }
+                });
+                inventoryPanel.add(inventoryButton);
+                inventoryPanel.revalidate();
+                inventoryPanel.repaint();
+
+                // Clear the form fields after adding a reservation
+                clearFormFields();
+            }
+        });
+
+        frame.setVisible(true);
+    }
+
+    private void saveReservationToFile(String fullName, ReservationTab reservationTab) {
+        String fileName = fullName + ".txt";
+        String filePath = INVENTORY_FOLDER + File.separator + fileName;
+
+        try (FileWriter writer = new FileWriter(filePath)) {
+            writer.write("Full Name: " + fullName + "\n\n");
+            writer.write("Age: " + reservationTab.getAge() + "\n");
+            writer.write("Date of Birth: " + reservationTab.getDob() + "\n");
+            writer.write("Sex: " + reservationTab.getSex() + "\n");
+            writer.write("Address: " + reservationTab.getAddress() + "\n");
+            writer.write("Contact Number: " + reservationTab.getContactNumber() + "\n\n");
+            writer.write("Current Medications:\n" + reservationTab.getCurrentMedications() + "\n\n");
+            writer.write("Allergies:\n" + reservationTab.getAllergies() + "\n\n");
+            writer.write("Past Medical History:\n" + reservationTab.getPastMedicalHistory() + "\n\n");
+            writer.write("Other Information:\n" + reservationTab.getOtherInfo() + "\n");
+            JOptionPane.showMessageDialog(null, "Reservation saved successfully to Inventory folder.");
+        } catch (IOException e) {
+            JOptionPane.showMessageDialog(null, "Error saving reservation to file:\n" + e.getMessage(),
+                    "Error", JOptionPane.ERROR_MESSAGE);
+            e.printStackTrace();
+        }
+    }
+
+    private void clearFormFields() {
+        fullNameField.setText("");
+        ageField.setText("");
+        dobField.setText("");
+        sexField.setText("");
+        addressField.setText("");
+        contactNumberField.setText("");
+        currentMedicationsArea.setText("");
+        allergiesArea.setText("");
+        pastMedicalHistoryArea.setText("");
+        otherInfoArea.setText("");
+    }
+
+    private void loadExistingReservations(JPanel inventoryPanel) {
+        File folder = new File(INVENTORY_FOLDER);
+        File[] listOfFiles = folder.listFiles();
+
+        if (listOfFiles != null) {
+            for (File file : listOfFiles) {
+                if (file.isFile() && file.getName().endsWith(".txt")) {
+                    String fileName = file.getName();
+                    String patientName = fileName.substring(0, fileName.length() - 4); // Remove ".txt"
+                    String filePath = INVENTORY_FOLDER + File.separator + fileName;
+
+                    // Read file contents
+                    try (Scanner scanner = new Scanner(new File(filePath))) {
+                        StringBuilder fileContent = new StringBuilder();
+                        while (scanner.hasNextLine()) {
+                            fileContent.append(scanner.nextLine()).append("\n");
+                        }
+                        // Parse the file contents and create a new ReservationTab
+                        String[] contentLines = fileContent.toString().split("\n");
+                        String age = contentLines[2].substring(contentLines[2].indexOf(':') + 2);
+                        String dob = contentLines[3].substring(contentLines[3].indexOf(':') + 2);
+                        String sex = contentLines[4].substring(contentLines[4].indexOf(':') + 2);
+                        String address = contentLines[5].substring(contentLines[5].indexOf(':') + 2);
+                        String contactNumber = contentLines[6].substring(contentLines[6].indexOf(':') + 2);
+
+                        StringBuilder currentMedications = new StringBuilder();
+                        StringBuilder allergies = new StringBuilder();
+                        StringBuilder pastMedicalHistory = new StringBuilder();
+                        StringBuilder otherInfo = new StringBuilder();
+                        int section = 0; // 1: currentMedications, 2: allergies, 3: pastMedicalHistory, 4: otherInfo
+                        for (int i = 8; i < contentLines.length; i++) {
+                            if (contentLines[i].startsWith("Current Medications:")) {
+                                section = 1;
+                                continue;
+                            } else if (contentLines[i].startsWith("Allergies:")) {
+                                section = 2;
+                                continue;
+                            } else if (contentLines[i].startsWith("Past Medical History:")) {
+                                section = 3;
+                                continue;
+                            } else if (contentLines[i].startsWith("Other Information:")) {
+                                section = 4;
+                                continue;
+                            }
+                            switch (section) {
+                                case 1:
+                                    currentMedications.append(contentLines[i]).append("\n");
+                                    break;
+                                case 2:
+                                    allergies.append(contentLines[i]).append("\n");
+                                    break;
+                                case 3:
+                                    pastMedicalHistory.append(contentLines[i]).append("\n");
+                                    break;
+                                case 4:
+                                    otherInfo.append(contentLines[i]).append("\n");
+                                    break;
+                            }
+                        }
+
+                        ReservationTab reservationTab = new ReservationTab(
+                                patientName, age, dob, sex, address, contactNumber,
+                                currentMedications.toString(), allergies.toString(),
+                                pastMedicalHistory.toString(), otherInfo.toString(), tabbedPane
+                        );
+
+                        reservationTabs.put(patientName, reservationTab);
+
+                        // Create an inventory button for the loaded reservation
+                        JButton inventoryButton = new JButton(patientName);
+                        inventoryButton.addActionListener(new ActionListener() {
+                            @Override
+                            public void actionPerformed(ActionEvent e) {
+                                String patientName = inventoryButton.getText();
+                                ReservationTab existingTab = reservationTabs.get(patientName);
+                                if (existingTab != null) {
+                                    int index = tabbedPane.indexOfComponent(existingTab);
+                                    if (index != -1) {
+                                        tabbedPane.setSelectedIndex(index);
+                                    } else {
+                                        tabbedPane.addTab(patientName, existingTab);
+                                        tabbedPane.setSelectedComponent(existingTab);
+                                    }
+                                }
+                            }
+                        });
+
+                        inventoryPanel.add(inventoryButton);
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                }
+            }
+        }
+
+        inventoryPanel.revalidate();
+        inventoryPanel.repaint();
+    }
+
+    public static void main(String[] args) {
+        SwingUtilities.invokeLater(new Runnable() {
+            @Override
+            public void run() {
+                new ClinicReservationSystem();
+            }
+        });
+    }
+}
